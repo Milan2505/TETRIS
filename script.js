@@ -96,7 +96,8 @@ function hardDrop(){while(!collides(currentPiece,board,0,1)){currentPiece.y++;sc
 function rotate(){const nr=(currentPiece.rotation+1)%SHAPES[currentPiece.name].length;for(const dx of[0,-1,1,-2,2]){if(!collides(currentPiece,board,dx,0,nr)){currentPiece.rotation=nr;currentPiece.shape=getShape(currentPiece);currentPiece.x+=dx;sfx(440,0.04,'square',0.05);return;}}}
 function gameOver(){gameRunning=false;stopMusic();const hs=parseInt(localStorage.getItem('tetris_hs')||'0');if(score>hs)localStorage.setItem('tetris_hs',score);document.getElementById('high-score').textContent=Math.max(score,hs);document.getElementById('final-score').textContent=score;document.getElementById('gameover-overlay').classList.remove('hidden');sfx(293.66,0.3,'sawtooth',0.1);sfx(246.94,0.5,'sawtooth',0.08,0.3);}
 function gameLoop(time=0){if(!gameRunning)return;if(paused){requestAnimationFrame(gameLoop);return;}const dt=time-lastTime;lastTime=time;dropTimer+=dt;if(dropTimer>=dropInterval){drop();dropTimer=0;}drawBoard();requestAnimationFrame(gameLoop);}
-function startGame(){board=createBoard();score=0;lines=0;level=1;dropInterval=800;dropTimer=0;lastTime=0;paused=false;gameRunning=true;currentPiece=randomPiece();nextPiece=randomPiece();updateUI();drawNext();document.getElementById('start-overlay').classList.add('hidden');document.getElementById('gameover-overlay').classList.add('hidden');
+function startGame(){board=createBoard();score=0;lines=0;level=1;dropInterval=800;dropTimer=0;lastTime=0;paused=false;gameRunning=true;currentPiece=randomPiece();nextPiece=randomPiece();updateUI();drawNext();document.getElementById('start-overlay').classList.add('hidden');document.getElementById('gameover-overlay').classList.add('hidden');document.getElementById('high-score').textContent=localStorage.getItem('tetris_hs')||'0';resizeGame();musicStartOffset=0;if(musicEnabled)startMusic();requestAnimationFrame(gameLoop);}
+
 function resizeGame() {
   const maxH = window.innerHeight - 40;
   BLOCK = Math.floor(maxH / ROWS);
@@ -109,8 +110,7 @@ window.addEventListener('resize', resizeGame);
 window.addEventListener('load', resizeGame);
 document.getElementById('music-btn').addEventListener('click', toggleMusic);
 document.querySelectorAll('.start-btn').forEach(btn=>btn.addEventListener('click', startGame));
-
-document.getElementById('high-score').textContent=localStorage.getItem('tetris_hs')||'0';resizeGame();musicStartOffset=0;if(musicEnabled)startMusic();requestAnimationFrame(gameLoop);}
+document.getElementById('high-score').textContent=localStorage.getItem('tetris_hs')||'0';resizeGame();
 document.addEventListener('keydown',e=>{if(!gameRunning)return;if(e.key==='p'||e.key==='P'){paused=!paused;if(paused)stopMusic();else if(musicEnabled)startMusic();return;}if(paused)return;switch(e.key){case'ArrowLeft':if(!collides(currentPiece,board,-1,0))currentPiece.x--;e.preventDefault();break;case'ArrowRight':if(!collides(currentPiece,board,1,0))currentPiece.x++;e.preventDefault();break;case'ArrowDown':if(!collides(currentPiece,board,0,1)){currentPiece.y++;score+=1;updateUI();}e.preventDefault();break;case'ArrowUp':rotate();e.preventDefault();break;case' ':hardDrop();e.preventDefault();break;}});
 let touchStartX,touchStartY,touchTime;
 canvas.addEventListener('touchstart',e=>{const t=e.touches[0];touchStartX=t.clientX;touchStartY=t.clientY;touchTime=Date.now();e.preventDefault();});
