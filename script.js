@@ -520,14 +520,28 @@ function startGame() {
 
 function resizeGame() {
   const isMobile = window.innerWidth <= 600;
-  const mobileInfoH = isMobile ? 40 : 0;
-  const touchCtrlH = isMobile ? 72 : 0;
-  const maxH = window.innerHeight - 40 - mobileInfoH - touchCtrlH;
-  const maxW = isMobile ? window.innerWidth - 16 : window.innerWidth - 400;
-  const blockByH = Math.floor(maxH / ROWS);
-  const blockByW = Math.floor(maxW / COLS);
 
-  BLOCK = Math.max(8, Math.min(blockByH, blockByW));
+  if (isMobile) {
+    // Measure actual available space from DOM elements
+    const wrapper = document.getElementById("game-wrapper");
+    const mobileInfo = document.querySelector(".mobile-info");
+    const touchCtrls = document.querySelector(".touch-controls");
+    const wrapperH = wrapper ? wrapper.clientHeight : window.innerHeight;
+    const infoH = mobileInfo ? mobileInfo.offsetHeight : 0;
+    const ctrlH = touchCtrls ? touchCtrls.offsetHeight : 0;
+    const maxH = wrapperH - infoH - ctrlH - 8;
+    const maxW = window.innerWidth - 8;
+    const blockByH = Math.floor(maxH / ROWS);
+    const blockByW = Math.floor(maxW / COLS);
+    BLOCK = Math.max(8, Math.min(blockByH, blockByW));
+  } else {
+    const maxH = window.innerHeight - 40;
+    const maxW = window.innerWidth - 400;
+    const blockByH = Math.floor(maxH / ROWS);
+    const blockByW = Math.floor(maxW / COLS);
+    BLOCK = Math.max(8, Math.min(blockByH, blockByW));
+  }
+
   canvas.width = COLS * BLOCK;
   canvas.height = ROWS * BLOCK;
 
