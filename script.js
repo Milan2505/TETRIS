@@ -197,6 +197,11 @@ let backToBack = false;
 let startLevel = 1;
 let boardBg = "#1a0505";
 
+/* Ultra / "Hell" mode */
+let ultraMode = false;
+let levelBase = 1;
+const ULTRA_BASE_LEVEL = 13;
+
 
 /* ========================
    5. BOARD LOGIC
@@ -204,6 +209,19 @@ let boardBg = "#1a0505";
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
+}
+
+/* Ultra/Hell mode: pre-fill the bottom rows with holed garbage */
+function addGarbageRows(n) {
+  for (let k = 0; k < n; k++) {
+    const r = ROWS - 1 - k;
+    const holes = new Set();
+    const holeCount = 1 + Math.floor(Math.random() * 2);
+    while (holes.size < holeCount) holes.add(Math.floor(Math.random() * COLS));
+    for (let c = 0; c < COLS; c++) {
+      board[r][c] = holes.has(c) ? 0 : 1 + Math.floor(Math.random() * 7);
+    }
+  }
 }
 
 /* 7-bag randomizer: each batch of 7 contains every piece once, shuffled */
@@ -291,8 +309,10 @@ function clearLines() {
 
     score += pts * level;
     lines += cleared;
-    level = Math.floor(lines / 10) + startLevel;
-    dropInterval = Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
+    level = Math.floor(lines / 10) + levelBase;
+    dropInterval = ultraMode
+      ? Math.max(40, Math.round(600 * Math.pow(0.82, level - 1)))
+      : Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
     updateUI();
     sfx(523.25, 0.1, "square", 0.12);
     sfx(659.25, 0.15, "square", 0.10, 0.1);
@@ -380,14 +400,17 @@ function drawBoard() {
 
   /* Current piece + ghost */
   if (currentPiece) {
-    const ghostY = getGhostY();
     const shape = getShape(currentPiece);
 
-    shape.forEach((row, r) => {
-      row.forEach((val, c) => {
-        if (val) drawBlock(ctx, currentPiece.x + c, currentPiece.y + r + ghostY, val, BLOCK, true);
+    /* Ghost piece — hidden in Ultra/Hell mode to raise difficulty */
+    if (!ultraMode) {
+      const ghostY = getGhostY();
+      shape.forEach((row, r) => {
+        row.forEach((val, c) => {
+          if (val) drawBlock(ctx, currentPiece.x + c, currentPiece.y + r + ghostY, val, BLOCK, true);
+        });
       });
-    });
+    }
     shape.forEach((row, r) => {
       row.forEach((val, c) => {
         if (val) drawBlock(ctx, currentPiece.x + c, currentPiece.y + r, val);
@@ -440,8 +463,16 @@ const LEVEL_THEMES = [
 ];
 
 function applyTheme() {
-  const t = LEVEL_THEMES[(level - 1) % LEVEL_THEMES.length];
   const gc = document.getElementById("game-container");
+  if (ultraMode) {
+    if (gc) {
+      gc.style.borderColor = "#FF2222";
+      gc.style.boxShadow = "0 0 35px rgba(255, 0, 0, 0.7)";
+    }
+    boardBg = "#1a0000";
+    return;
+  }
+  const t = LEVEL_THEMES[(level - 1) % LEVEL_THEMES.length];
   if (gc) {
     gc.style.borderColor = t[1];
     gc.style.boxShadow = "0 0 30px " + t[1] + "66";
@@ -450,11 +481,12 @@ function applyTheme() {
 }
 
 let bannerTimer = null;
-function showBanner(text, color, ms) {
+function showBanner(text, color, ms, ultra = false) {
   const b = document.getElementById("level-banner");
   if (!b) return;
   b.textContent = text;
   b.style.color = color;
+  b.classList.toggle("ultra", ultra);
   b.classList.add("show");
   if (bannerTimer) clearTimeout(bannerTimer);
   bannerTimer = setTimeout(() => b.classList.remove("show"), ms);
@@ -531,9 +563,10 @@ function holdCurrent() {
    ======================== */
 
 function updateUI() {
+  const levelText = ultraMode ? "АД" : level;
   document.getElementById("score").textContent = score;
   document.getElementById("lines").textContent = lines;
-  document.getElementById("level").textContent = level;
+  document.getElementById("level").textContent = levelText;
 
   /* Level dots */
   const dotsEl = document.getElementById("level-dots");
@@ -551,7 +584,7 @@ function updateUI() {
   const mh = document.getElementById("m-highscore");
   if (ms) ms.textContent = score;
   if (ml) ml.textContent = lines;
-  if (mv) mv.textContent = level;
+  if (mv) mv.textContent = levelText;
   if (mh) mh.textContent = localStorage.getItem("tetris_hs") || "0";
 }
 
@@ -640,21 +673,25 @@ function startGame() {
   board = createBoard();
   score = 0;
   lines = 0;
-  level = startLevel;
+  levelBase = ultraMode ? ULTRA_BASE_LEVEL : startLevel;
+  level = levelBase;
   combo = 0;
   backToBack = false;
   pieceBag = [];
   holdPiece = null;
   canHold = true;
-  dropInterval = Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
+  dropInterval = ultraMode ? 45 : Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
   dropTimer = 0;
   lastTime = 0;
   paused = false;
   gameRunning = true;
 
+  if (ultraMode) addGarbageRows(4);
+
   currentPiece = randomPiece();
   nextPiece = randomPiece();
   applyTheme();
+  if (ultraMode) showBanner("АД", "#FF3030", 1500, true);
   updateUI();
   drawNext();
   drawHold();
@@ -893,11 +930,24 @@ document.getElementById("high-score").textContent = localStorage.getItem("tetris
 
 /* Starting-level selectors (1-10), shared between the start and game-over
    overlays. setStartLevel keeps every selector's highlight in sync. */
-function setStartLevel(n) {
-  startLevel = n;
+function updateSelectorHighlights() {
   document.querySelectorAll(".ls-btn").forEach((btn) => {
-    btn.classList.toggle("active", parseInt(btn.dataset.level, 10) === n);
+    btn.classList.toggle("active", !ultraMode && parseInt(btn.dataset.level, 10) === startLevel);
   });
+  document.querySelectorAll(".ls-btn-ultra").forEach((btn) => {
+    btn.classList.toggle("active", ultraMode);
+  });
+}
+
+function setStartLevel(n) {
+  ultraMode = false;
+  startLevel = n;
+  updateSelectorHighlights();
+}
+
+function selectUltra() {
+  ultraMode = true;
+  updateSelectorHighlights();
 }
 
 function buildLevelSelector(containerId) {
@@ -916,6 +966,9 @@ function buildLevelSelector(containerId) {
 
 buildLevelSelector("ls-buttons");
 buildLevelSelector("ls-buttons-over");
+document.querySelectorAll(".ls-btn-ultra").forEach((btn) => {
+  btn.addEventListener("click", selectUltra);
+});
 
 syncViewportVars();
 resizeGame();
