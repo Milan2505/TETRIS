@@ -228,6 +228,7 @@ let boardBg = "#1a0505";
 
 /* Ultra / "Hell" mode */
 let ultraMode = false;
+let ultraSlow = false;
 let levelBase = 1;
 const ULTRA_BASE_LEVEL = 12;
 
@@ -340,7 +341,7 @@ function clearLines() {
     lines += cleared;
     level = Math.floor(lines / 10) + levelBase;
     dropInterval = ultraMode
-      ? Math.max(55, Math.round(700 * Math.pow(0.82, level - 1)))
+      ? (ultraSlow ? 700 : Math.max(55, Math.round(700 * Math.pow(0.82, level - 1))))
       : Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
     updateUI();
     sfx(523.25, 0.1, "square", 0.12);
@@ -431,8 +432,8 @@ function drawBoard() {
   if (currentPiece) {
     const shape = getShape(currentPiece);
 
-    /* Ghost piece — hidden in Ultra/Hell mode to raise difficulty */
-    if (!ultraMode) {
+    /* Ghost piece — hidden only in fast Ultra/Hell mode (shown when slowed) */
+    if (!ultraMode || ultraSlow) {
       const ghostY = getGhostY();
       shape.forEach((row, r) => {
         row.forEach((val, c) => {
@@ -702,20 +703,20 @@ function startGame() {
   board = createBoard();
   score = 0;
   lines = 0;
-  levelBase = ultraMode ? ULTRA_BASE_LEVEL : startLevel;
+  levelBase = ultraMode ? (ultraSlow ? 3 : ULTRA_BASE_LEVEL) : startLevel;
   level = levelBase;
   combo = 0;
   backToBack = false;
   pieceBag = [];
   holdPiece = null;
   canHold = true;
-  dropInterval = ultraMode ? 70 : Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
+  dropInterval = ultraMode ? (ultraSlow ? 700 : 70) : Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
   dropTimer = 0;
   lastTime = 0;
   paused = false;
   gameRunning = true;
 
-  if (ultraMode) addGarbageRows(2);
+  if (ultraMode && !ultraSlow) addGarbageRows(2);
 
   currentPiece = randomPiece();
   nextPiece = randomPiece();
@@ -965,18 +966,29 @@ function updateSelectorHighlights() {
     btn.classList.toggle("active", !ultraMode && parseInt(btn.dataset.level, 10) === startLevel);
   });
   document.querySelectorAll(".ls-btn-ultra").forEach((btn) => {
-    btn.classList.toggle("active", ultraMode);
+    btn.classList.toggle("active", ultraMode && !ultraSlow);
+  });
+  document.querySelectorAll(".ls-btn-slow").forEach((btn) => {
+    btn.classList.toggle("active", ultraMode && ultraSlow);
   });
 }
 
 function setStartLevel(n) {
   ultraMode = false;
+  ultraSlow = false;
   startLevel = n;
   updateSelectorHighlights();
 }
 
 function selectUltra() {
   ultraMode = true;
+  ultraSlow = false;
+  updateSelectorHighlights();
+}
+
+function selectUltraSlow() {
+  ultraMode = true;
+  ultraSlow = true;
   updateSelectorHighlights();
 }
 
@@ -998,6 +1010,9 @@ buildLevelSelector("ls-buttons");
 buildLevelSelector("ls-buttons-over");
 document.querySelectorAll(".ls-btn-ultra").forEach((btn) => {
   btn.addEventListener("click", selectUltra);
+});
+document.querySelectorAll(".ls-btn-slow").forEach((btn) => {
+  btn.addEventListener("click", selectUltraSlow);
 });
 
 syncViewportVars();
