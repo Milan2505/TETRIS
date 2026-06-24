@@ -573,3 +573,88 @@ canvas#tetris {
     padding: 8px 18px;
   }
 }
+
+
+/* ========================
+   11. ADDED FEATURES
+   (Hold preview / Level banner / Level selector)
+   ======================== */
+
+#hold-canvas {
+  display: block;
+  margin: 0 auto;
+  background: #111;
+  border-radius: 3px;
+}
+
+#level-banner {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.6);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 20px;
+  color: #FFD700;
+  text-shadow: 3px 3px 0 #8B0000, 0 0 18px rgba(255, 215, 0, 0.6);
+  letter-spacing: 3px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#level-banner.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.level-select {
+  margin-top: 4px;
+  text-align: center;
+}
+
+.ls-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #FFD700;
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+}
+
+.ls-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  max-width: 240px;
+}
+
+.ls-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  width: 30px;
+  height: 30px;
+  background: #8B0000;
+  color: #FFD700;
+  border: 2px solid #FFD700;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.ls-btn:hover {
+  background: #AA0000;
+}
+
+.ls-btn.active {
+  background: #FFD700;
+  color: #8B0000;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+}
+
+@media (max-width: 600px) {
+  #level-banner {
+    font-size: 15px;
+  }
+}

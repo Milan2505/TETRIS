@@ -31,7 +31,7 @@
   <link rel="image_src" href="social-preview.png?v=1">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
   <img class="logo-cheval" src="logo-cheval.png?v=3" alt="Logo PMC Cheval Group">
@@ -82,11 +82,16 @@
     <!-- Center: Game Board -->
     <div id="game-container">
       <canvas id="tetris"></canvas>
+      <div id="level-banner"></div>
 
       <!-- Start Overlay -->
       <div class="overlay" id="start-overlay">
         <h2>☭ ТЕТРИС ☭</h2>
         <p>СОВЕТСКАЯ КЛАССИКА</p>
+        <div class="level-select">
+          <div class="ls-label">УРОВЕНЬ</div>
+          <div class="ls-buttons" id="ls-buttons"></div>
+        </div>
         <button class="start-btn">ИГРАТЬ</button>
         <p class="start-note">НАЖМИТЕ ЧТОБЫ НАЧАТЬ</p>
       </div>
@@ -107,6 +112,10 @@
         <canvas id="next-canvas" width="140" height="120"></canvas>
       </div>
       <div class="panel-box">
+        <div class="panel-title">Держать (C)</div>
+        <canvas id="hold-canvas" width="140" height="110"></canvas>
+      </div>
+      <div class="panel-box">
         <div class="panel-title">Лучший</div>
         <div class="panel-value" id="high-score">0</div>
       </div>
@@ -116,6 +125,7 @@
           <span>↑</span> Вращать<br>
           <span>↓</span> Вниз<br>
           <span>SPACE</span> Бросить<br>
+          <span>C</span> Держать<br>
           <span>P</span> Пауза
         </div>
       </div>
@@ -131,11 +141,12 @@
       <button class="touch-btn" id="btn-down">▼</button>
       <button class="touch-btn" id="btn-drop">⏬</button>
       <button class="touch-btn" id="btn-right">▶</button>
+      <button class="touch-btn" id="btn-hold">⇄</button>
     </div>
 
   </div>
 
   <!-- Game Script (external) -->
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>

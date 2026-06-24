@@ -173,10 +173,14 @@ const canvas = document.getElementById("tetris");
 const ctx = canvas.getContext("2d");
 const nextCanvas = document.getElementById("next-canvas");
 const nextCtx = nextCanvas.getContext("2d");
+const holdCanvas = document.getElementById("hold-canvas");
+const holdCtx = holdCanvas ? holdCanvas.getContext("2d") : null;
 
 let board;
 let currentPiece;
 let nextPiece;
+let holdPiece;
+let canHold;
 let score;
 let lines;
 let level;
@@ -185,6 +189,13 @@ let paused;
 let dropInterval;
 let dropTimer;
 let lastTime;
+
+/* Added gameplay state */
+let pieceBag = [];
+let combo = 0;
+let backToBack = false;
+let startLevel = 1;
+let boardBg = "#1a0505";
 
 
 /* ========================
@@ -195,8 +206,20 @@ function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
 }
 
+/* 7-bag randomizer: each batch of 7 contains every piece once, shuffled */
+function pullFromBag() {
+  if (pieceBag.length === 0) {
+    pieceBag = PIECE_NAMES.slice();
+    for (let i = pieceBag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pieceBag[i], pieceBag[j]] = [pieceBag[j], pieceBag[i]];
+    }
+  }
+  return pieceBag.pop();
+}
+
 function randomPiece() {
-  const name = PIECE_NAMES[Math.floor(Math.random() * PIECE_NAMES.length)];
+  const name = pullFromBag();
   return {
     name: name,
     rotation: 0,
@@ -251,13 +274,33 @@ function clearLines() {
     }
   }
   if (cleared > 0) {
-    score += ([0, 100, 300, 500, 800][cleared] || 800) * level;
+    const prevLevel = level;
+    let pts = [0, 100, 300, 500, 800][cleared] || 800;
+
+    /* Back-to-back bonus: two Tetris (4-line) clears in a row -> +50% */
+    if (cleared === 4) {
+      if (backToBack) pts = Math.round(pts * 1.5);
+      backToBack = true;
+    } else {
+      backToBack = false;
+    }
+
+    /* Combo bonus: consecutive line clears */
+    combo++;
+    if (combo > 1) pts += 50 * (combo - 1);
+
+    score += pts * level;
     lines += cleared;
-    level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(50, 800 - (level - 1) * 70);
+    level = Math.floor(lines / 10) + startLevel;
+    dropInterval = Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
     updateUI();
     sfx(523.25, 0.1, "square", 0.12);
     sfx(659.25, 0.15, "square", 0.10, 0.1);
+    if (cleared === 4) sfx(784, 0.2, "square", 0.12, 0.05);
+    if (combo > 1) showBanner("КОМБО ×" + combo, "#FF8800", 650);
+    if (level > prevLevel) levelUp();
+  } else {
+    combo = 0;
   }
 }
 
@@ -304,6 +347,13 @@ function getGhostY() {
 
 function drawBoard() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  /* Level background tint */
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = boardBg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
 
   /* Grid lines */
   ctx.strokeStyle = "rgba(255,255,255,0.04)";
@@ -378,6 +428,105 @@ function drawNext() {
 
 
 /* ========================
+   6b. LEVELS, HOLD & BANNER
+   ======================== */
+
+/* Each level cycles a [board tint, border color] theme */
+const LEVEL_THEMES = [
+  ["#1a0505", "#FFD700"], ["#0a1f0a", "#44AA44"], ["#001a1a", "#44AAAA"],
+  ["#1a1000", "#FF8800"], ["#10001a", "#AA44CC"], ["#001020", "#4488CC"],
+  ["#1a1a00", "#FFE44D"], ["#1a0010", "#FF4488"], ["#0a0a0a", "#AAAAAA"],
+  ["#200000", "#FF2222"]
+];
+
+function applyTheme() {
+  const t = LEVEL_THEMES[(level - 1) % LEVEL_THEMES.length];
+  const gc = document.getElementById("game-container");
+  if (gc) {
+    gc.style.borderColor = t[1];
+    gc.style.boxShadow = "0 0 30px " + t[1] + "66";
+  }
+  boardBg = t[0];
+}
+
+let bannerTimer = null;
+function showBanner(text, color, ms) {
+  const b = document.getElementById("level-banner");
+  if (!b) return;
+  b.textContent = text;
+  b.style.color = color;
+  b.classList.add("show");
+  if (bannerTimer) clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => b.classList.remove("show"), ms);
+}
+
+function levelUp() {
+  applyTheme();
+  showBanner("УРОВЕНЬ " + level, "#FFD700", 1100);
+  sfx(523.25, 0.12, "square", 0.12);
+  sfx(659.25, 0.12, "square", 0.12, 0.12);
+  sfx(784, 0.25, "square", 0.13, 0.24);
+}
+
+function drawHold() {
+  if (!holdCtx) return;
+  holdCtx.fillStyle = "#1a0505";
+  holdCtx.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
+  if (!holdPiece) return;
+
+  const shape = SHAPES[holdPiece.name][0];
+  const sz = 24;
+  const ox = Math.floor((holdCanvas.width - shape[0].length * sz) / 2);
+  const oy = Math.floor((holdCanvas.height - shape.length * sz) / 2);
+
+  shape.forEach((row, r) => {
+    row.forEach((val, c) => {
+      if (!val) return;
+      const px = ox + c * sz;
+      const py = oy + r * sz;
+      /* Grey out the preview while hold is locked for this piece */
+      holdCtx.fillStyle = canHold ? COLORS[val] : "#555";
+      holdCtx.fillRect(px, py, sz, sz);
+      holdCtx.fillStyle = canHold ? PIECE_BORDER_LIGHT[val] : "#777";
+      holdCtx.fillRect(px, py, sz, 2);
+      holdCtx.fillRect(px, py, 2, sz);
+      holdCtx.fillStyle = canHold ? PIECE_BORDER_DARK[val] : "#333";
+      holdCtx.fillRect(px, py + sz - 2, sz, 2);
+      holdCtx.fillRect(px + sz - 2, py, 2, sz);
+    });
+  });
+}
+
+function holdCurrent() {
+  if (!gameRunning || paused || !canHold) return;
+  sfx(330, 0.05, "square", 0.06);
+
+  if (holdPiece) {
+    const swapName = holdPiece.name;
+    holdPiece = { name: currentPiece.name };
+    currentPiece = {
+      name: swapName,
+      rotation: 0,
+      shape: SHAPES[swapName][0],
+      x: Math.floor((COLS - SHAPES[swapName][0][0].length) / 2),
+      y: 0
+    };
+  } else {
+    holdPiece = { name: currentPiece.name };
+    currentPiece = nextPiece;
+    currentPiece.x = Math.floor((COLS - getShape(currentPiece)[0].length) / 2);
+    currentPiece.y = 0;
+    nextPiece = randomPiece();
+    drawNext();
+  }
+
+  canHold = false;
+  drawHold();
+  if (collides(currentPiece, board)) gameOver();
+}
+
+
+/* ========================
    7. UI UPDATE
    ======================== */
 
@@ -421,6 +570,7 @@ function drop() {
     currentPiece.x = Math.floor((COLS - getShape(currentPiece)[0].length) / 2);
     currentPiece.y = 0;
     nextPiece = randomPiece();
+    canHold = true;
     drawNext();
     if (collides(currentPiece, board)) gameOver();
   }
@@ -490,8 +640,13 @@ function startGame() {
   board = createBoard();
   score = 0;
   lines = 0;
-  level = 1;
-  dropInterval = 800;
+  level = startLevel;
+  combo = 0;
+  backToBack = false;
+  pieceBag = [];
+  holdPiece = null;
+  canHold = true;
+  dropInterval = Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
   dropTimer = 0;
   lastTime = 0;
   paused = false;
@@ -499,8 +654,10 @@ function startGame() {
 
   currentPiece = randomPiece();
   nextPiece = randomPiece();
+  applyTheme();
   updateUI();
   drawNext();
+  drawHold();
 
   document.getElementById("start-overlay").classList.add("hidden");
   document.getElementById("gameover-overlay").classList.add("hidden");
@@ -613,6 +770,13 @@ document.addEventListener("keydown", (e) => {
       rotate();
       e.preventDefault();
       break;
+    case "c":
+    case "C":
+    case "с":
+    case "С":
+      holdCurrent();
+      e.preventDefault();
+      break;
     case " ":
       hardDrop();
       e.preventDefault();
@@ -650,6 +814,7 @@ canvas.addEventListener("touchend", (e) => {
     if (dx < -30 && !collides(currentPiece, board, -1, 0)) currentPiece.x--;
   } else {
     if (dy > 50) hardDrop();
+    else if (dy < -50) holdCurrent();
   }
   e.preventDefault();
 });
@@ -692,6 +857,7 @@ bindBtn("btn-right",  () => { if (!collides(currentPiece, board, 1, 0))  current
 bindBtn("btn-down",   () => { if (!collides(currentPiece, board, 0, 1))  { currentPiece.y++; score += 1; updateUI(); } });
 bindBtn("btn-rotate", () => { rotate(); });
 bindBtn("btn-drop",   () => { hardDrop(); });
+bindBtn("btn-hold",   () => { holdCurrent(); });
 
 
 let resizeRaf = null;
@@ -724,6 +890,23 @@ if (window.visualViewport) {
 document.getElementById("music-btn").addEventListener("click", toggleMusic);
 document.querySelectorAll(".start-btn").forEach(btn => btn.addEventListener("click", startGame));
 document.getElementById("high-score").textContent = localStorage.getItem("tetris_hs") || "0";
+
+/* Starting-level selector buttons (1-10) */
+(function () {
+  const c = document.getElementById("ls-buttons");
+  if (!c) return;
+  for (let i = 1; i <= 10; i++) {
+    const b = document.createElement("button");
+    b.className = "ls-btn" + (i === 1 ? " active" : "");
+    b.textContent = i;
+    b.addEventListener("click", () => {
+      startLevel = i;
+      Array.from(c.children).forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+    });
+    c.appendChild(b);
+  }
+})();
 
 syncViewportVars();
 resizeGame();
