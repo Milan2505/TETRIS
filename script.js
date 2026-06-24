@@ -891,22 +891,31 @@ document.getElementById("music-btn").addEventListener("click", toggleMusic);
 document.querySelectorAll(".start-btn").forEach(btn => btn.addEventListener("click", startGame));
 document.getElementById("high-score").textContent = localStorage.getItem("tetris_hs") || "0";
 
-/* Starting-level selector buttons (1-10) */
-(function () {
-  const c = document.getElementById("ls-buttons");
+/* Starting-level selectors (1-10), shared between the start and game-over
+   overlays. setStartLevel keeps every selector's highlight in sync. */
+function setStartLevel(n) {
+  startLevel = n;
+  document.querySelectorAll(".ls-btn").forEach((btn) => {
+    btn.classList.toggle("active", parseInt(btn.dataset.level, 10) === n);
+  });
+}
+
+function buildLevelSelector(containerId) {
+  const c = document.getElementById(containerId);
   if (!c) return;
+  c.innerHTML = "";
   for (let i = 1; i <= 10; i++) {
     const b = document.createElement("button");
-    b.className = "ls-btn" + (i === 1 ? " active" : "");
+    b.className = "ls-btn" + (i === startLevel ? " active" : "");
     b.textContent = i;
-    b.addEventListener("click", () => {
-      startLevel = i;
-      Array.from(c.children).forEach(x => x.classList.remove("active"));
-      b.classList.add("active");
-    });
+    b.dataset.level = i;
+    b.addEventListener("click", () => setStartLevel(i));
     c.appendChild(b);
   }
-})();
+}
+
+buildLevelSelector("ls-buttons");
+buildLevelSelector("ls-buttons-over");
 
 syncViewportVars();
 resizeGame();

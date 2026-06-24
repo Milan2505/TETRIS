@@ -611,8 +611,13 @@ canvas#tetris {
 }
 
 .level-select {
-  margin-top: 4px;
+  margin: 2px 0;
   text-align: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid #FFD700;
+  border-radius: 6px;
+  padding: 10px 12px;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.25);
 }
 
 .ls-label {
@@ -628,18 +633,18 @@ canvas#tetris {
   flex-wrap: wrap;
   gap: 6px;
   justify-content: center;
-  max-width: 240px;
+  max-width: 250px;
 }
 
 .ls-btn {
   font-family: 'Press Start 2P', monospace;
-  font-size: 9px;
-  width: 30px;
-  height: 30px;
+  font-size: 11px;
+  width: 34px;
+  height: 34px;
   background: #8B0000;
   color: #FFD700;
   border: 2px solid #FFD700;
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
 }
 
