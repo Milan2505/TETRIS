@@ -73,8 +73,37 @@ function toggleMusic() {
   musicEnabled = !musicEnabled;
   document.getElementById("music-btn").textContent =
     musicEnabled ? "\u266b \u041C\u0423\u0417\u042B\u041A\u0410: ON" : "\u266b \u041C\u0423\u0417\u042B\u041A\u0410: OFF";
-  if (musicEnabled && gameRunning) startMusic();
-  else stopMusic();
+  if (musicEnabled && gameRunning) playLevelMusic();
+  else pauseLevelMusic();
+}
+
+/* --- Level-specific music: a dedicated track for Ultra/Hell (АД) mode --- */
+let ultraAudio = null;
+function getUltraAudio() {
+  if (!ultraAudio) {
+    ultraAudio = new Audio("ad-music.mp3");
+    ultraAudio.loop = true;
+    ultraAudio.volume = 0.55;
+  }
+  return ultraAudio;
+}
+
+/* Plays the right track for the current mode (if music is enabled) */
+function playLevelMusic() {
+  if (!musicEnabled) return;
+  if (ultraMode) {
+    stopMusic();
+    /* If ad-music.mp3 is missing, gracefully fall back to the normal track */
+    getUltraAudio().play().catch(() => { if (ultraMode && musicEnabled) startMusic(); });
+  } else {
+    if (ultraAudio) ultraAudio.pause();
+    startMusic();
+  }
+}
+
+function pauseLevelMusic() {
+  stopMusic();
+  if (ultraAudio) ultraAudio.pause();
 }
 
 /* --- Sound Effects --- */
@@ -200,7 +229,7 @@ let boardBg = "#1a0505";
 /* Ultra / "Hell" mode */
 let ultraMode = false;
 let levelBase = 1;
-const ULTRA_BASE_LEVEL = 13;
+const ULTRA_BASE_LEVEL = 12;
 
 
 /* ========================
@@ -311,7 +340,7 @@ function clearLines() {
     lines += cleared;
     level = Math.floor(lines / 10) + levelBase;
     dropInterval = ultraMode
-      ? Math.max(40, Math.round(600 * Math.pow(0.82, level - 1)))
+      ? Math.max(55, Math.round(700 * Math.pow(0.82, level - 1)))
       : Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
     updateUI();
     sfx(523.25, 0.1, "square", 0.12);
@@ -634,7 +663,7 @@ function rotate() {
 
 function gameOver() {
   gameRunning = false;
-  stopMusic();
+  pauseLevelMusic();
 
   const highScore = parseInt(localStorage.getItem("tetris_hs") || "0");
   if (score > highScore) localStorage.setItem("tetris_hs", score);
@@ -680,13 +709,13 @@ function startGame() {
   pieceBag = [];
   holdPiece = null;
   canHold = true;
-  dropInterval = ultraMode ? 45 : Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
+  dropInterval = ultraMode ? 70 : Math.max(50, Math.round(800 * Math.pow(0.82, level - 1)));
   dropTimer = 0;
   lastTime = 0;
   paused = false;
   gameRunning = true;
 
-  if (ultraMode) addGarbageRows(4);
+  if (ultraMode) addGarbageRows(2);
 
   currentPiece = randomPiece();
   nextPiece = randomPiece();
@@ -703,7 +732,8 @@ function startGame() {
 
   resizeGame();
   musicStartOffset = 0;
-  if (musicEnabled) startMusic();
+  if (ultraMode) getUltraAudio().currentTime = 0;
+  playLevelMusic();
   requestAnimationFrame(gameLoop);
 }
 
@@ -779,8 +809,8 @@ document.addEventListener("keydown", (e) => {
 
   if (e.key === "p" || e.key === "P") {
     paused = !paused;
-    if (paused) stopMusic();
-    else if (musicEnabled) startMusic();
+    if (paused) pauseLevelMusic();
+    else playLevelMusic();
     return;
   }
 
